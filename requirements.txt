@@ -1,0 +1,27 @@
+# RepurposeIQ – complete dependency list
+# Core
+streamlit>=1.35.0
+requests>=2.31.0
+pandas>=2.0.0
+numpy>=1.24.0
+plotly>=5.17.0
+networkx>=3.1
+
+# Feature 10 / 11 – sortable AgGrid table
+streamlit-aggrid>=0.3.4
+
+# Feature 4 – PDF report generation
+reportlab>=4.0.0
+
+# Feature 9 – chemical structure rendering
+rdkit>=2023.3.1          # or: rdkit-pypi>=2022.9.5
+
+# Feature 12 / 26 – clustering + risk scoring
+scikit-learn>=1.3.0
+
+# Feature 17 – PNG network export
+kaleido>=0.2.1
+
+# Convenience / already common
+httpx>=0.25.0
+python-dotenv>=1.0.0
