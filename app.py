@@ -626,37 +626,31 @@ def _render_aggrid_table(drug: str, display_df: pd.DataFrame):
         })
     grid_df = pd.DataFrame(rows)
 
-    phase_renderer = JsCode("""
+    phase_style = JsCode("""
     function(params) {
         const p = params.value || '';
-        let bg = '#252840', color = '#8892a4';
-        if (p.includes('III') || p.includes('3')) { bg='#1a3a5a'; color='#4ae090'; }
-        else if (p.includes('II') || p.includes('2')) { bg='#1a2840'; color='#4a9eff'; }
-        else if (p.includes('I')) { bg='#252840'; color='#c8d0e8'; }
-        const el = document.createElement('span');
-        el.style.cssText = 'background:'+bg+';color:'+color+';padding:2px 8px;border-radius:4px;font-weight:600;';
-        el.textContent = p;
-        return el;
+        if (p.includes('III') || p.includes('3'))
+            return {color: '#4ae090', fontWeight: '600'};
+        if (p.includes('II') || p.includes('2'))
+            return {color: '#4a9eff', fontWeight: '600'};
+        if (p.includes('I'))
+            return {color: '#c8d0e8', fontWeight: '600'};
+        return {color: '#8892a4'};
     }
     """)
-    pm_renderer = JsCode("""
+    pm_style = JsCode("""
     function(params) {
         const n = params.value || 0;
-        let c = '#8892a4';
-        if (n > 50) c = '#4ae090';
-        else if (n >= 10) c = '#ffd040';
-        const el = document.createElement('span');
-        el.style.color = c;
-        el.style.fontWeight = '700';
-        el.textContent = n;
-        return el;
+        if (n > 50)  return {color: '#4ae090', fontWeight: '700'};
+        if (n >= 10) return {color: '#ffd040', fontWeight: '700'};
+        return {color: '#8892a4'};
     }
     """)
 
     gb = GridOptionsBuilder.from_dataframe(grid_df)
     gb.configure_default_column(filter=True, sortable=True, resizable=True, cellStyle={"color":"#c8d0e8"})
-    gb.configure_column("Trials",     cellRenderer=phase_renderer)
-    gb.configure_column("PubMed refs",cellRenderer=pm_renderer)
+    gb.configure_column("Trials",     cellStyle=phase_style)
+    gb.configure_column("PubMed refs",cellStyle=pm_style)
     gb.configure_selection("multiple", use_checkbox=True)
     gb.configure_pagination(enabled=True, paginationAutoPageSize=False, paginationPageSize=15)
     gb.configure_grid_options(rowStyle={"background":"#1e2233"},
@@ -673,13 +667,17 @@ def _render_aggrid_table(drug: str, display_df: pd.DataFrame):
         update_mode="SELECTION_CHANGED",
     )
     selected = result.get("selected_rows", [])
-    # streamlit-aggrid may return a DataFrame or a list depending on version
-    if isinstance(selected, pd.DataFrame):
-        has_selection = not selected.empty
-        _sel_records = selected.to_dict("records")
-    else:
-        has_selection = bool(selected)
-        _sel_records = list(selected)
+    # streamlit-aggrid returns DataFrame, list, or custom object depending on version
+    try:
+        if isinstance(selected, pd.DataFrame):
+            _sel_records = selected.to_dict("records")
+        elif selected is None:
+            _sel_records = []
+        else:
+            _sel_records = [r for r in selected] if selected else []
+    except Exception:
+        _sel_records = []
+    has_selection = len(_sel_records) > 0
     if has_selection:
         st.markdown(f"**{len(_sel_records)} row(s) selected**")
         sel_df = pd.DataFrame(_sel_records)
