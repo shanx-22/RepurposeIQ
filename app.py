@@ -633,8 +633,10 @@ def _render_aggrid_table(drug: str, display_df: pd.DataFrame):
         if (p.includes('III') || p.includes('3')) { bg='#1a3a5a'; color='#4ae090'; }
         else if (p.includes('II') || p.includes('2')) { bg='#1a2840'; color='#4a9eff'; }
         else if (p.includes('I')) { bg='#252840'; color='#c8d0e8'; }
-        return `<span style="background:${bg};color:${color};padding:2px 8px;
-                border-radius:4px;font-weight:600;">${p}</span>`;
+        const el = document.createElement('span');
+        el.style.cssText = 'background:'+bg+';color:'+color+';padding:2px 8px;border-radius:4px;font-weight:600;';
+        el.textContent = p;
+        return el;
     }
     """)
     pm_renderer = JsCode("""
@@ -643,7 +645,11 @@ def _render_aggrid_table(drug: str, display_df: pd.DataFrame):
         let c = '#8892a4';
         if (n > 50) c = '#4ae090';
         else if (n >= 10) c = '#ffd040';
-        return `<span style="color:${c};font-weight:700;">${n}</span>`;
+        const el = document.createElement('span');
+        el.style.color = c;
+        el.style.fontWeight = '700';
+        el.textContent = n;
+        return el;
     }
     """)
 
@@ -667,9 +673,16 @@ def _render_aggrid_table(drug: str, display_df: pd.DataFrame):
         update_mode="SELECTION_CHANGED",
     )
     selected = result.get("selected_rows", [])
-    if selected:
-        st.markdown(f"**{len(selected)} row(s) selected**")
-        sel_df = pd.DataFrame(selected)
+    # streamlit-aggrid may return a DataFrame or a list depending on version
+    if isinstance(selected, pd.DataFrame):
+        has_selection = not selected.empty
+        _sel_records = selected.to_dict("records")
+    else:
+        has_selection = bool(selected)
+        _sel_records = list(selected)
+    if has_selection:
+        st.markdown(f"**{len(_sel_records)} row(s) selected**")
+        sel_df = pd.DataFrame(_sel_records)
         sel_csv = sel_df.to_csv(index=False)
         st.download_button("⬇ Export selected", sel_csv,
                            "selected_opportunities.csv","text/csv")
@@ -680,10 +693,10 @@ def _render_aggrid_table(drug: str, display_df: pd.DataFrame):
                 key="bulk_ann_status")
             bulk_note = st.text_input("Note (optional)", key="bulk_ann_note")
             if st.button("Apply to all selected", key="bulk_ann_apply"):
-                for sel_row in selected:
+                for sel_row in _sel_records:
                     k = f"{drug}_{sel_row.get('Disease','')}"
                     st.session_state["annotations"][k] = {"note":bulk_note,"status":bulk_status}
-                st.success(f"Annotated {len(selected)} rows ✓")
+                st.success(f"Annotated {len(_sel_records)} rows ✓")
     # Per-row annotation for visible rows
     st.markdown("**Quick-annotate visible rows:**")
     for _, row in display_df.head(10).iterrows():
@@ -1034,8 +1047,9 @@ def page_network_view():
             st.download_button("⬇ Export PNG", png_buf.getvalue(),
                                f"{drug}_{disease}_network.png", "image/png",
                                use_container_width=True)
-        except ImportError:
-            st.button("⬇ Export PNG (install kaleido)", disabled=True, use_container_width=True)
+        except (ImportError, RuntimeError, Exception):
+            st.button("⬇ Export PNG (not available in this environment)",
+                      disabled=True, use_container_width=True)
     with ex2:
         graphml_buf = io.BytesIO()
         nx.write_graphml(G, graphml_buf)
